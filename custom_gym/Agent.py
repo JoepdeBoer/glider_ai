@@ -6,7 +6,7 @@ g = 9.81
 class Agent():
     def __init__(self, x, y, z, V, theta,
                  s1, v1, s2, v2, s3,
-                 v3, vstall, vne, objective, time_step = 1, name= 'Agent'):
+                 v3, vstall, vne, objective, time_step =.1, name= 'Agent'):
         """
         x, y, z in m
         All speeds in m/s
@@ -36,12 +36,12 @@ class Agent():
         self.history = []
 
     def get_state(self, wind):
-        dict = {'xyz': np.array([self.x, self.y, self.z], dtype=np.float32),
-                'V': self.V,
-                'thetha': self.theta, # in radian[self.theta],
-                'b': self.b, # in rad
-                'updraft': wind.updraft(self.x, self.y, self.z),
-                'objective': self.objective}
+        dict = {'xyz': np.array([self.x, self.y, self.z], dtype=np.float32),  # in m shape(3,)
+                'V': np.array([self.V], dtype=np.float32),  # in m/s shape(1,)
+                'thetha': np.array([self.theta], dtype=np.float32), # in rad shape(1,)
+                'b': np.array([self.b], dtype=np.float32),  # in rad shape (1,)
+                'updraft': np.array([wind.updraft(self.x, self.y, self.z)], dtype=np.float32), # in m/s shape (1,)
+                'objective': np.array(self.objective).astype(np.float32)} # in m shape (2,)
         return dict
 
     def move(self, Windfield):
@@ -51,21 +51,19 @@ class Agent():
         self.x = self.x + self.V*np.cos(self.theta) * self.time_step
         self.y = self.y - self.V*np.sin(self.theta) * self.time_step
         self.z = self.z + self.sink()*self.time_step + updraft*self.time_step - self.dV * (self.dV + 2 * self.V)/(2 * 9.81)
-
         if self.V + self.dV > 1.2 * self.vstall and self.V + self.dV < self.vne:
             self.V = self.V + self.dV # only changing V when it is far enough from stall
         if self.b + self.db < np.pi/3 and self.b + self.db > -np.pi/3:
             self.b = self.b + self.db
-        self.theta = self.theta + self.dtheta()
+        self.theta = (self.theta + self.dtheta() + np.pi) % (2 * np.pi) - np.pi
 
 
-    def take_action(self, db, dV):
+    def take_action(self, action):
         """Taking action given as single value arrays to floats
         db is scaled to the rolling rate of a discus flying at 90-100km/h
         dv is scaed to have a maximum of +- 3 m/s^2 """
-
-        self.db = float(db) * 90/180 * np.pi / 4.2 * self.time_step
-        self.dV = float(dV) * 3 * self.time_step
+        self.db = float(action[0]) * 90/180 * np.pi / 4.2 * self.time_step
+        self.dV = float(action[1]) * 3 * self.time_step
 
 
 
@@ -96,5 +94,5 @@ class Agent():
         y = [i[1] for i in self.history]
         z = [i[2] for i in self.history]
         ax = plt.figure().add_subplot(projection='3d')
-        ax.plot(x, y, z)
+        ax.plot(x, -np.array(y), z)
         plt.show()

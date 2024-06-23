@@ -1,19 +1,14 @@
 import time
-import gym
+import gymnasium as gym
 import numpy as np
 import random
 import os
 import pygame
 
-from custom_gym.rendering import field_to_rgb, draw_plane
-
-WIDTH, HEIGHT = 500, 500 # screen width and height
-WINDFIELD_resolution = 10
-FPS = 24
-
+from custom_gym.rendering import field_to_rgb, draw_plane, subsurface
 
 class CompEnv(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 24}
+    metadata = {"render_modes": ["human", "training"], "render_fps": 10}
     def __init__(self, agent, wind, time_limit, render_mode = None):
         #super(competttitionEnv, self).__init__() # allowing to pass parameters
         self.plane = agent
@@ -21,8 +16,7 @@ class CompEnv(gym.Env):
         self.time_limit = time_limit
         self.timestep = 0
         self.done = False
-        self.action_space = gym.spaces.Dict({'db': gym.spaces.Box(low=-1, high=1, shape=(1,), dtype=np.float32),
-                                             'dV': gym.spaces.Box(low=-1, high=1, shape=(1,), dtype=np.float32)}) # need to specify two actions possible gym.spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32) # need to specify two actions possible
+        self.action_space = gym.spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
         self.observation_space = gym.spaces.Dict({'xyz': gym.spaces.Box(low=-np.inf, high=np.inf, shape=(3,), dtype=np.float32),
                                                   'V': gym.spaces.Box(low=agent.vstall, high=agent.vne, dtype=np.float32),
                                                   'thetha': gym.spaces.Box(low=-np.pi, high=np.pi, dtype=np.float32),
@@ -32,7 +26,7 @@ class CompEnv(gym.Env):
         # rendering
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
-        self.display_size = 800
+        self.display_size = 1000
         self.display = None
         self.updraft_rgb = None
         self.clock = None
@@ -40,13 +34,14 @@ class CompEnv(gym.Env):
 
     def step(self, action):
         self.timestep += 1
-        self.plane.take_action(action['db'], action['dV'])
+        action = action.reshape((2,)) # inconsistent shape is sometimes returned really anoying
+        self.plane.take_action(action)
         self.plane.move(self.wind)
         state = self.plane.get_state(self.wind) # new state
         reward, self.done = self.reward()
         info = {} # not used
 
-        if self.render_mode == 'human' and not self.done:
+        if (self.render_mode == 'human' or self.render_mode == 'training') and not self.done:
             self._render_frame()
 
         return state, reward, self.done, False, info
@@ -60,10 +55,13 @@ class CompEnv(gym.Env):
         done = True
         if self.plane.z <= 0:
             reward -= 500 * distance
+            print(f'plane crashed {self.plane.z}')
         elif self.timestep >= self.time_limit:
             reward -= 500 * distance
+            print('time limit reached')
         elif distance < 2000: # if plane hit the objective
             reward += 1000 * (self.time_limit-self.timestep)
+            print('objective reached')
         else:
             done = False
         return reward, done
@@ -88,7 +86,7 @@ class CompEnv(gym.Env):
         # setting the objective to a location 50km away
         r = 50e3
         theta = random.uniform(0, 2*np.pi)
-        self.plane.objective = np.array([self.plane.x + r*np.cos(theta), self.plane.y + r*np.sin(theta)])
+        self.plane.objective = np.array([self.plane.x + r*np.cos(theta), self.plane.y + r*np.sin(theta)]).reshape((2,))
 
         # get starting state
         state = self.plane.get_state(self.wind)  # new state
@@ -100,7 +98,7 @@ class CompEnv(gym.Env):
         return state, info
 
     def render(self):
-        if self.render_mode == "rgb_array":
+        if self.render_mode:
             return self._render_frame()
 
     # def render(self):
@@ -114,54 +112,44 @@ class CompEnv(gym.Env):
 
     
     def _render_frame(self):
-        if self.display is None and self.render_mode == "human":
-            pygame.init()
-            pygame.display.init()
-            self.display = pygame.display.set_mode((self.display_size, self.display_size))
-            self.font = pygame.font.SysFont('Courier New', 30)
-        if self.clock is None and self.render_mode == "human":
-            self.clock = pygame.time.Clock()
-        if self.font is None:
-            self.font = pygame.font.SysFont('Courier New', 30)
-        if self.updraft_rgb is None:
-            self.updraft_rgb = field_to_rgb(self.wind.field)
+        if self.render_mode:
+            if pygame.get_init() is False:
+                pygame.init()
+            if self.display is None:
+                self.display = pygame.display.set_mode((self.display_size, self.display_size))
+            if self.font is None:
+                self.font = pygame.font.SysFont('Courier New', 30)
+            if self.clock is None:
+                self.clock = pygame.time.Clock()
+            if self.updraft_rgb is None:
+                self.updraft_rgb = field_to_rgb(self.wind.field)
 
         # background creation
-        # TODO when plane is out of the field make it a color
-        x1 = y1 = int((self.plane.x - self.display_size / 2) / self.wind.resolution)
-        x2 = y2 = int(x1 + round(self.display_size / self.wind.resolution))
-        localmap = self.updraft_rgb[x1:x2, y1:y2, :] # TODO x1, y1, x2, y2 can be out of range!!!
-        size = localmap.shape[1::-1] # TODO test
-        surface = pygame.image.frombuffer(localmap.flatten(), size, 'RGB')
-        surface = pygame.transform.scale_by(surface, self.wind.resolution)
-        # surface = pygame.Surface((self.display_size, self.display_size))
-        # surface.fill((255, 255, 255))
+        surface = subsurface(self.updraft_rgb, self.plane.x, self.plane.y,
+                             self.wind.resolution, self.display_size, self.display_size)
         draw_plane(self.plane, surface, self.font)
+        self.display.blit(surface, surface.get_rect())
+        pygame.event.pump()
+        pygame.display.update()
 
         if self.render_mode == "human":
-            # The following line copies our drawings from `canvas` to the visible window
-            self.display.blit(surface, surface.get_rect())
-            pygame.event.pump()
-            pygame.display.update()
-
-            # We need to ensure that human-rendering occurs at the predefined framerate.
             # The following line will automatically add a delay to keep the framerate stable.
             self.clock.tick(self.metadata["render_fps"])
-        else:  # rgb_array
-            return np.transpose(
-                np.array(pygame.surfarray.pixels3d(surface)), axes=(1, 0, 2)
-            )
 
 
     #
     def close(self):
-        self.plane.plot_history()
+        if self.render_mode == "human":
+            self.plane.plot_history()
         if self.display is not None:
+            self.display = None
+            self.clock = None
+            self.font = None
+            self.updraft_rgb = None
             pygame.display.quit()
             pygame.quit()
 
 
 
-
 if __name__ == '__main__':
-    print(os.listdir('../Windfields'))
+    print('nothing here')
