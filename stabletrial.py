@@ -7,7 +7,7 @@ from custom_gym.environement import Windfield
 
 
 faulthandler.enable()
-timesteps = 1000
+timesteps = 100
 
 
 plane = Agent(100., 100., 1500., 30., 0., -0.72, 28.825, -1.55, 43.24, -3.1, 52.84, 18.33, 69.44, (0.,0.))

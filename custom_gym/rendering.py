@@ -13,57 +13,49 @@ def field_to_rgb(field):
 def subsurface(updraft_map, x, y, resolution, screen_width=500, screen_height=500):
     y1 = int((x - screen_width / 2) / resolution)
     y2 = int((x + screen_width / 2) / resolution)
-    # x2 = int(x1 + round(screen_width/resolution))
     x1 = int((y - screen_height / 2) / resolution)
     x2 = int((y + screen_height / 2) / resolution)
-    # y2 = int(y1 + round(screen_height/resolution))
-    # x1 = int((x/resolution - screen_width / 2))
-    # x2 = int(x1 + screen_width)
-    # y1 = int((y/resolution - screen_height/2))
-    # y2 = int(y1 + screen_height)
-    out_of_bounds = []
-    if x1 < 0:
-        x1 = 0
-        addleft = -x1
-        out_of_bounds.append['left']
-    elif x2 > updraft_map.shape[0]:
-        x2 = updraft_map.shape[0] - 1
-        addright = x2 - updraft_map.shape[0]
-        out_of_bounds.append('right')
-    if y1 < 0:
-        y1 = 0
-        addup = -y1
-        out_of_bounds.append('up')
-    elif y2 > updraft_map.shape[1]:
-        y2 = updraft_map.shape[1] - 1
-        adddown = y2 - updraft_map.shape[1]
-        out_of_bounds.appemd('down')
 
-    localmap = updraft_map[x1:x2, y1:y2, :]
-    if out_of_bounds:
-        blue = np.array([89, 216, 255])
-        for i in out_of_bounds:
-            match i:
-                case 'up':
-                    bluerow = np.tile(blue, (1, localmap.shape[1]))  # lenght of only the localmap
-                    rows_above = np.repeat(bluerow, addup, axis=0)
-                    localmap = np.stack((rows_above, localmap), axis=0)
-                case 'down':
-                    bluerow = np.tile(blue, (1, localmap.shape[1]))  # lenght of only the localmap
-                    rows_below = np.repeat(bluerow, adddown, axis=0)
-                    localmap = np.stack((localmap, rows_below), axis=0)
-
-                case 'left':
-                    bluecolumn = np.tile(blue, (int(round(screen_height / resolution)), 1))  # lenght of desired map
-                    columns_left = np.repeat(bluecolumn, addleft, axis=1)
-                    localmap = np.stack((columns_left, localmap), axis=1)
-
-                case 'right':
-                    bluecolumn = np.tile(blue, (int(round(screen_height / resolution)), 1))  # lenght of desired map
-                    columns_right = np.repeat(bluecolumn, addright, axis=1)
-                    localmap = np.stack((localmap, columns_right), axis=1)
-
+    blue = np.array([89, 216, 255], dtype=np.uint8)
+    localmap = np.tile(blue, (int(screen_width/resolution), int(screen_height/resolution), 1))
     size = localmap.shape[1::-1]
+    j1 = 0
+    j2 = None
+    i1 = 0
+    i2 = None
+    if y1 < 0:
+        j1 = int(screen_height / resolution) - y2
+        j2 = None
+        y1 = 0
+
+    elif y2 > updraft_map.shape[1]:
+        j1 = 0
+        j2 = int(screen_height / resolution) - x2 + updraft_map.shape[0]
+        y2 = None
+
+    if y2 <= 0 or y1 >= updraft_map.shape[1]:
+        surface = pygame.image.frombuffer(localmap.flatten(), size, 'RGB')
+        surface = pygame.transform.scale_by(surface, resolution)
+        return surface
+    if x1 < 0:
+        i1 = int(screen_width / resolution) - x2
+        i2 = None
+        x1 = 0
+
+    elif x2 > updraft_map.shape[0]:
+        i1 = 0
+        i2 = int(screen_width / resolution) - x2 + updraft_map.shape[0]
+        x2 = None
+
+    if x2 <= 0 or x1 >= updraft_map.shape[0]:
+        surface = pygame.image.frombuffer(localmap.flatten(), size, 'RGB')
+        surface = pygame.transform.scale_by(surface, resolution)
+        return surface
+
+
+    rows, columns = localmap[i1:i2, j1:j2, :].shape[0:2]
+    localmap[i1:i2, j1:j2, :] = updraft_map[x1:x1+rows, y1:y1+columns, :].astype(np.uint8)
+
     surface = pygame.image.frombuffer(localmap.flatten(), size, 'RGB')
     surface = pygame.transform.scale_by(surface, resolution)
     return surface
@@ -95,7 +87,7 @@ def draw_plane(plane, surface, font):
     R = 2000
     vector = np.array([plane.objective[0] - plane.x, plane.objective[1] - plane.y])
     distance = np.linalg.norm(vector)
-    assert (np.isnan([plane.objective[0] - plane.x, plane.objective[1] - plane.y]).any() == False)
+    assert (np.isnan([plane.objective[0] - plane.x, plane.objective[1] - plane.y]).any() != True)
     pygame.draw.line(surface, 'green',
                        (width / 2, height / 2), (plane.objective[0] - plane.x, plane.objective[1] - plane.y))
 

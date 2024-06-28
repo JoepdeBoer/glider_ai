@@ -75,9 +75,10 @@ class CompEnv(gym.Env):
         #selecting a random windfield
         self.wind.load_field() # Load one of the random windfields
 
-        # resetting agent location to middle of the field
+        # # resetting agent location to middle of the field
         self.plane.x = self.wind.field.shape[0]/2 * self.wind.resolution
         self.plane.y = self.wind.field.shape[1]/2 * self.wind.resolution
+
         self.plane.z = 1000  # lower than distance to objective/L/D_max such that utilising thermals is required
         self.plane.V = 30
         self.plane.b = 0
@@ -115,6 +116,7 @@ class CompEnv(gym.Env):
         if self.render_mode:
             if pygame.get_init() is False:
                 pygame.init()
+                pygame.display.set_caption('Flying High')
             if self.display is None:
                 self.display = pygame.display.set_mode((self.display_size, self.display_size))
             if self.font is None:

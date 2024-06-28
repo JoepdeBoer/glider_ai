@@ -16,7 +16,7 @@ thermalrad_avg = 200
 thermalrad_std = 30
 name = f'Wind_{datetime.today().strftime("%m-%d-%H-%M")}'
 
-plane = Agent(100, 100, 1500, 30, 0, -0.72, 28.825, -1.55, 43.24, -3.1, 52.84, 18.33, 69.44, (-10000, 10000), time_step= 0.1)
+plane = Agent(0, 0, 1500, 30, 0, -0.72, 28.825, -1.55, 43.24, -3.1, 52.84, 18.33, 69.44, (-10000, 10000), time_step= 0.1)
 Wind = Windfield(size, resolution, thermalheight_avg, thermalheight_std, thermalstrenght_avg, thermalstrenght_std, thermalrad_avg, thermalrad_std)
 
 if __name__ == '__main__':
