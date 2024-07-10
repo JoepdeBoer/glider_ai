@@ -2,6 +2,7 @@ import numpy as np
 import pygame
 
 
+
 def field_to_rgb(field):
     updraft_map = (((field - np.min(field)) / (
             np.max(field) - np.min(field))) * 255).astype(np.uint8)
@@ -10,15 +11,14 @@ def field_to_rgb(field):
     return updraft_map
 
 
-def subsurface(updraft_map, x, y, resolution, screen_width=500, screen_height=500):
+def subsurface_prep(updraft_map, x, y, resolution, screen_width=500, screen_height=500) -> np.ndarray:
     y1 = int((x - screen_width / 2) / resolution)
     y2 = int((x + screen_width / 2) / resolution)
     x1 = int((y - screen_height / 2) / resolution)
     x2 = int((y + screen_height / 2) / resolution)
 
     blue = np.array([89, 216, 255], dtype=np.uint8)
-    localmap = np.tile(blue, (int(screen_width/resolution), int(screen_height/resolution), 1))
-    size = localmap.shape[1::-1]
+    localmap = np.repeat(blue, int(screen_width/resolution) * int(screen_height/resolution)).reshape((int(screen_width/resolution), int(screen_height/resolution), 3))
     j1 = 0
     j2 = None
     i1 = 0
@@ -34,9 +34,8 @@ def subsurface(updraft_map, x, y, resolution, screen_width=500, screen_height=50
         y2 = None
 
     if y2 <= 0 or y1 >= updraft_map.shape[1]:
-        surface = pygame.image.frombuffer(localmap.flatten(), size, 'RGB')
-        surface = pygame.transform.scale_by(surface, resolution)
-        return surface
+        return localmap
+
     if x1 < 0:
         i1 = int(screen_width / resolution) - x2
         i2 = None
@@ -48,20 +47,20 @@ def subsurface(updraft_map, x, y, resolution, screen_width=500, screen_height=50
         x2 = None
 
     if x2 <= 0 or x1 >= updraft_map.shape[0]:
-        surface = pygame.image.frombuffer(localmap.flatten(), size, 'RGB')
-        surface = pygame.transform.scale_by(surface, resolution)
-        return surface
-
-
+        return localmap
     rows, columns = localmap[i1:i2, j1:j2, :].shape[0:2]
     localmap[i1:i2, j1:j2, :] = updraft_map[x1:x1+rows, y1:y1+columns, :].astype(np.uint8)
+    return localmap
 
+def subsurface(updraft_map: np.ndarray, x: float, y: float, resolution: int, screen_width: int = 500, screen_height: int = 500) -> pygame.Surface:
+    localmap = subsurface_prep(updraft_map, x, y, resolution, screen_width, screen_height)
+    size = localmap.shape[1::-1]
     surface = pygame.image.frombuffer(localmap.flatten(), size, 'RGB')
     surface = pygame.transform.scale_by(surface, resolution)
     return surface
 
 
-def draw_plane(plane, surface, font):
+def draw_plane(plane, surface, font, wind):
     width = surface.get_width()
     height = surface.get_height()
 
@@ -104,6 +103,11 @@ def draw_plane(plane, surface, font):
     text = f' h: {round(plane.z, 1)} m  V: {round(plane.V, 1)} m/s  DTO:{round(distance, 1)} m'
     rendered_text = font.render(text, True, 'red')
     surface.blit(rendered_text, (10, 10))
+    updraft = wind.updraft(plane.x, plane.y, plane.z)
+    sink = plane.sink()
+    text2 = f'netto vario: {round(updraft + sink, 1)} m/s dV : {round(plane.dV,2)} m/s'
+    rendered_text2 = font.render(text2, True, 'red')
+    surface.blit(rendered_text2, (10, 30))
     return surface
 
 

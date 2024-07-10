@@ -28,9 +28,9 @@ if __name__ == "__main__":
     resolution = 10
     thermalheight_avg = 1500
     thermalheight_std = 50
-    thermalstrenght_avg = 10
+    thermalstrenght_avg = 15
     thermalstrenght_std = 0.5
-    thermalrad_avg = 200
+    thermalrad_avg = 300
     thermalrad_std = 30
     name  = f'Wind_{datetime.today().strftime("%m-%d-%H-%M")}'
 

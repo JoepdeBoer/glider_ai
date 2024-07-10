@@ -47,23 +47,38 @@ class CompEnv(gym.Env):
         return state, reward, self.done, False, info
 
     def reward(self):
-        distance = np.sqrt((self.plane.x - self.plane.objective[0])**2 + (self.plane.y - self.plane.objective[1])**2)
-        alt = self.plane.z
+        distance = np.sqrt(
+            (self.plane.x - self.plane.objective[0]) ** 2 + (self.plane.y - self.plane.objective[1]) ** 2)
+        if self.timestep < 2:
+            reward = 0
+        else:
+            prev_dist = np.sqrt((self.plane.history[-2][0] - self.plane.objective[0])**2 + (self.plane.history[-2][1] - self.plane.objective[1])**2)
+            delta_dist = prev_dist - distance # distance travelled to objective
+            delta_alt = self.plane.z - self.plane.history[-2][2] # altitude gain
 
-        #Base reward function
-        reward = -distance + alt*self.plane.bestLD - self.timestep
+            #Base reward function
+            reward = delta_dist/1000 # reward is representative of distance travelled to objective
         done = True
-        if self.plane.z <= 0:
-            reward -= 500 * distance
+
+        #Sparse reward function
+        if self.plane.V < 1.2 * self.plane.vstall or self.plane.V > self.plane.vne:
+            reward = -1000 - distance/1000
+            print('velocity out of bounds')
+        elif self.plane.b > np.pi/3 or self.plane.b < -np.pi/3:
+            reward = -1000 - distance/1000
+            print('bank angle to large')
+        elif self.plane.z <= 0:
+            reward = -distance/1000
             print(f'plane crashed {self.plane.z}')
         elif self.timestep >= self.time_limit:
-            reward -= 500 * distance
+            reward = -distance/1000
             print('time limit reached')
         elif distance < 2000: # if plane hit the objective
-            reward += 1000 * (self.time_limit-self.timestep)
+            reward = 1000 + (self.time_limit - self.timestep)
             print('objective reached')
         else:
             done = False
+
         return reward, done
 
 
@@ -127,9 +142,10 @@ class CompEnv(gym.Env):
                 self.updraft_rgb = field_to_rgb(self.wind.field)
 
         # background creation
+
         surface = subsurface(self.updraft_rgb, self.plane.x, self.plane.y,
                              self.wind.resolution, self.display_size, self.display_size)
-        draw_plane(self.plane, surface, self.font)
+        draw_plane(self.plane, surface, self.font, self.wind)
         self.display.blit(surface, surface.get_rect())
         pygame.event.pump()
         pygame.display.update()

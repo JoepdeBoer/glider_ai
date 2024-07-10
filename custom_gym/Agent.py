@@ -51,11 +51,10 @@ class Agent():
         self.x = self.x + self.V*np.cos(self.theta) * self.time_step
         self.y = self.y - self.V*np.sin(self.theta) * self.time_step
         self.z = self.z + self.sink()*self.time_step + updraft*self.time_step - self.dV * (self.dV + 2 * self.V)/(2 * 9.81)
-        if self.V + self.dV > 1.2 * self.vstall and self.V + self.dV < self.vne:
-            self.V = self.V + self.dV # only changing V when it is far enough from stall
-        if self.b + self.db < np.pi/3 and self.b + self.db > -np.pi/3:
-            self.b = self.b + self.db
         self.theta = (self.theta + self.dtheta() + np.pi) % (2 * np.pi) - np.pi
+        self.V = self.V + self.dV
+        self.b = self.b + self.db
+
 
 
     def take_action(self, action):

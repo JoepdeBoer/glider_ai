@@ -82,30 +82,24 @@ class Windfield():
 
     def save_field(self, filename=None):
         if filename:
-            np.save(f'custom_gym/Windfields/{filename}', self.field)
+            np.save(f'./Windfields/{filename}', self.field)
         else:
-            np.save(f'custom_gym/Windfields/{self.name}.npy', self.field)
+            np.save(f'./Windfields/{self.name}.npy', self.field)
 
     def load_field(self, filename = None):
         if filename:
-            self.field = np.load(f'custom_gym/Windfields/{filename}')
+            self.field = np.load(f'./custom_gym/Windfields/{filename}')
         else:
             random_file = random.choice(os.listdir("./custom_gym/Windfields"))
             self.field = np.load(f'custom_gym/Windfields/{random_file}')
 
-    def updraft(self, x,y,z):
-        if x >= self.width or y >= self.length:
-            return -1
-        if x < 0 or y < 0:
-            return -1
+    def updraft(self, x, y, z):
         if z > self.thermalheight_avg: # later height of individual thermals can be taken into account
             return 0
-
         xf = round(x/self.resolution)
         yf = round(y/self.resolution)
         if xf > self.field.shape[0]-1 or yf > self.field.shape[1]-1:
             return -1
-
         return self.field[xf, yf]
 
 
@@ -173,9 +167,9 @@ if __name__ == "__main__":
     length, width = 10000., 10000. # m
     thermalheigth_avg = 1500 # m
     thermalheigth_std = 100 # m
-    thermalstrength_avg = 2 # m/s
+    thermalstrength_avg = 10 # m/s
     thermalstrength_std = 1 # m/s
-    thermalwidth_avg = 200 # m
+    thermalwidth_avg = 300 # m
     thermalwidth_std = 50 # m
     resolution = 10 #m
     N = round(.6 * length * width / (thermalheigth_avg * thermalwidth_avg)) # Number of thermals https://websites.isae-supaero.fr/IMG/pdf/report.pdf
